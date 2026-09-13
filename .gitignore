@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+
+# 浏览器持久化登录数据（DrissionPage/Chrome 用户目录，体积大且含个人登录态）
+jd_user_data/
+mysql/jd_user_data/
+
+# 运行输出
+*.xlsx

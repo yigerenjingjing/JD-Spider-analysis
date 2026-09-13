@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>京东宠物玩具数据分析看板 (MySQL)</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+.header { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: #fff; padding: 28px 40px; text-align: center; }
+.header h1 { font-size: 28px; letter-spacing: 2px; }
+.header p { font-size: 14px; opacity: 0.85; margin-top: 6px; }
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: #fff; border-radius: 10px; padding: 20px 24px; box-shadow: 0 2px 10px rgba(0,0,0,.06); display: flex; align-items: center; gap: 16px; }
+.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.stat-icon.blue { background: #e8f4fd; color: #1890ff; }
+.stat-icon.green { background: #e6f7e6; color: #52c41a; }
+.stat-icon.orange { background: #fff3e0; color: #fa8c16; }
+.stat-icon.purple { background: #f3e8ff; color: #722ed1; }
+.stat-value { font-size: 28px; font-weight: 700; }
+.stat-label { font-size: 13px; color: #888; margin-top: 2px; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.chart-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.chart-card.full { grid-column: 1 / -1; }
+.chart-card h3 { font-size: 16px; margin-bottom: 12px; color: #444; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+.chart { width: 100%; height: 380px; }
+.chart.tall { height: 500px; }
+.table-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); margin-bottom: 20px; }
+.table-card h3 { font-size: 16px; margin-bottom: 12px; color: #444; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: #fafafa; padding: 12px 14px; text-align: left; border-bottom: 2px solid #e8e8e8; font-weight: 600; }
+td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+tr:hover td { background: #fafafa; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 4px; }
+.tag.pos { background: #f6ffed; color: #52c41a; }
+.tag.neg { background: #fff2f0; color: #e74c3c; }
+.tag.neu { background: #fffbe6; color: #d48806; }
+.footer { text-align: center; padding: 20px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🐾 京东宠物玩具数据分析看板</h1>
+  <p>基于用户评论的多维度数据可视化分析 · 数据来源：MySQL 数据库</p>
+</div>
+
+<div class="container">
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon blue">📦</div>
+      <div><div class="stat-value">4</div><div class="stat-label">爬取商品数</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">💬</div>
+      <div><div class="stat-value">80</div><div class="stat-label">总评论数</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon orange">⭐</div>
+      <div><div class="stat-value">97.0%</div><div class="stat-label">平均好评率</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">📝</div>
+      <div><div class="stat-value">64</div><div class="stat-label">平均评论长度（字）</div></div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h3>💰 商品价格对比</h3><div class="chart" id="chart-price"></div></div>
+    <div class="chart-card"><h3>📊 销量与好评率对比</h3><div class="chart" id="chart-sales-rate"></div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h3>😊 评论情感分布（按商品）</h3><div class="chart tall" id="chart-sentiment-bar"></div></div>
+    <div class="chart-card"><h3>🎯 整体情感占比</h3><div class="chart tall" id="chart-sentiment-pie"></div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h3>📏 评论长度分布</h3><div class="chart" id="chart-length"></div></div>
+    <div class="chart-card"><h3>🔑 热门关键词（全局 Top 15）</h3><div class="chart" id="chart-keywords"></div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h3>🏷️ 「欢宠网狗狗玩具自己玩解闷」关键词</h3><div class="chart" id="chart-kw-0"></div></div><div class="chart-card"><h3>🏷️ 「赛级替换头解闷长杆逗猫棒-1个」关键词</h3><div class="chart" id="chart-kw-1"></div></div><div class="chart-card"><h3>🏷️ 「疯狂的主人猫抓板窝大号」关键词</h3><div class="chart" id="chart-kw-2"></div></div><div class="chart-card"><h3>🏷️ 「疯狂的主人猫抓板窝大号」关键词</h3><div class="chart" id="chart-kw-3"></div></div>
+  </div>
+
+  <div class="table-card">
+    <h3>📋 商品数据明细</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>序号</th><th>商品名称</th><th>价格</th><th>店铺</th><th>销量</th><th>好评率</th><th>评论数</th><th>正面</th><th>中性</th><th>负面</th><th>均长(字)</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>欢宠网狗狗玩具自己玩解闷</td><td>¥15.8</td><td>欢宠网京东自营旗舰店</td>
+            <td>已售10万+96%好评</td><td>96%</td>
+            <td>20</td>
+            <td><span class="tag pos">19</span></td>
+            <td><span class="tag neu">0</span></td>
+            <td><span class="tag neg">1</span></td>
+            <td>75.1</td>
+          </tr><tr>
+            <td>2</td><td>赛级替换头解闷长杆逗猫棒-1个</td><td>¥4.99</td><td>京喜自营官方店</td>
+            <td>已售2万+97%好评</td><td>97%</td>
+            <td>20</td>
+            <td><span class="tag pos">19</span></td>
+            <td><span class="tag neu">1</span></td>
+            <td><span class="tag neg">0</span></td>
+            <td>29.9</td>
+          </tr><tr>
+            <td>3</td><td>疯狂的主人猫抓板窝大号</td><td>¥9.8</td><td>疯狂的主人京东自营旗舰店</td>
+            <td>已售70万+98%好评</td><td>98%</td>
+            <td>20</td>
+            <td><span class="tag pos">18</span></td>
+            <td><span class="tag neu">1</span></td>
+            <td><span class="tag neg">1</span></td>
+            <td>68.5</td>
+          </tr><tr>
+            <td>4</td><td>疯狂的主人猫抓板窝大号</td><td>¥16.9</td><td>疯狂的主人京东自营旗舰店</td>
+            <td>已售10万+97%好评</td><td>97%</td>
+            <td>20</td>
+            <td><span class="tag pos">17</span></td>
+            <td><span class="tag neu">3</span></td>
+            <td><span class="tag neg">0</span></td>
+            <td>83.3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">京东宠物玩具数据可视化看板 · 数据源: MySQL · 自动生成于 2026-05-09 01:15</div>
+
+<script>
+const PRODUCTS = [{"id": 4, "product_name": "欢宠网狗狗玩具自己玩解闷", "price": "¥15.8", "promotion": "首购礼金1元/满赠/包邮", "store_name": "欢宠网京东自营旗舰店", "sales_text": "已售10万+96%好评", "sales_num": 100000, "good_rate": 96, "detail_link": "https://item.jd.com/100058684398.html", "crawl_time": "2026-05-09 01:15:41"}, {"id": 3, "product_name": "赛级替换头解闷长杆逗猫棒-1个", "price": "¥4.99", "promotion": "包邮", "store_name": "京喜自营官方店", "sales_text": "已售2万+97%好评", "sales_num": 20000, "good_rate": 97, "detail_link": "https://item.jd.com/10190189380557.html", "crawl_time": "2026-05-09 01:15:41"}, {"id": 2, "product_name": "疯狂的主人猫抓板窝大号", "price": "¥9.8", "promotion": "包邮", "store_name": "疯狂的主人京东自营旗舰店", "sales_text": "已售70万+98%好评", "sales_num": 700000, "good_rate": 98, "detail_link": "https://item.jd.com/100017589286.html", "crawl_time": "2026-05-09 01:15:41"}, {"id": 1, "product_name": "疯狂的主人猫抓板窝大号", "price": "¥16.9", "promotion": "首购礼金1元/券满99减10/包邮", "store_name": "疯狂的主人京东自营旗舰店", "sales_text": "已售10万+97%好评", "sales_num": 100000, "good_rate": 97, "detail_link": "https://item.jd.com/100113396495.html", "crawl_time": "2026-05-09 01:15:41"}];
+const SENTIMENTS = [{"product": "欢宠网狗狗玩具自己玩解闷", "sentiments": {"positive": 19, "neutral": 0, "negative": 1}, "total": 20}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "sentiments": {"positive": 19, "neutral": 1, "negative": 0}, "total": 20}, {"product": "疯狂的主人猫抓板窝大号", "sentiments": {"positive": 18, "neutral": 1, "negative": 1}, "total": 20}, {"product": "疯狂的主人猫抓板窝大号", "sentiments": {"positive": 17, "neutral": 3, "negative": 0}, "total": 20}];
+const KEYWORDS = [{"product": "欢宠网狗狗玩具自己玩解闷", "keywords": {"耐咬": 10, "材质": 9, "安全": 9, "互动": 8, "推荐": 6, "磨牙": 6, "大小": 5, "做工": 5, "方便": 4, "发声": 4, "解闷": 4, "拆家": 4, "物流": 3, "性价比": 3, "回购": 3}}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "keywords": {"质量": 5, "性价比": 4, "推荐": 3, "材质": 2, "互动": 2, "价格": 1, "包装": 1, "耐用": 1, "异味": 1, "结实": 1, "安全": 1, "方便": 1, "耐咬": 1, "磨牙": 1, "设计": 1}}, {"product": "疯狂的主人猫抓板窝大号", "keywords": {"质量": 8, "物流": 6, "材质": 6, "耐用": 5, "磨爪": 5, "尺寸": 5, "价格": 4, "性价比": 4, "宽敞": 4, "睡觉": 3, "稳固": 3, "大小": 3, "包装": 2, "推荐": 2, "异味": 2}}, {"product": "疯狂的主人猫抓板窝大号", "keywords": {"材质": 10, "磨爪": 8, "尺寸": 8, "设计": 8, "包装": 7, "耐用": 7, "质量": 6, "物流": 4, "性价比": 4, "异味": 4, "稳固": 4, "防滑": 4, "大小": 4, "宽敞": 4, "价格": 3}}];
+const LENGTH_STATS = [{"product": "欢宠网狗狗玩具自己玩解闷", "avg": 75.1, "max": 102, "min": 43, "lengths": [63, 92, 83, 102, 65, 72, 90, 92, 64, 81, 43, 92, 60, 63, 84, 62, 78, 93, 59, 64]}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "avg": 29.9, "max": 102, "min": 7, "lengths": [16, 7, 63, 15, 22, 30, 102, 10, 22, 26, 8, 11, 61, 38, 23, 28, 33, 8, 53, 22]}, {"product": "疯狂的主人猫抓板窝大号", "avg": 68.5, "max": 93, "min": 47, "lengths": [88, 63, 82, 93, 57, 65, 84, 60, 75, 51, 63, 47, 63, 60, 64, 69, 61, 84, 68, 73]}, {"product": "疯狂的主人猫抓板窝大号", "avg": 83.3, "max": 230, "min": 60, "lengths": [67, 61, 67, 132, 60, 65, 90, 68, 230, 86, 72, 98, 90, 61, 64, 66, 92, 67, 69, 61]}];
+const GLOBAL_KW = {"材质": 27, "质量": 19, "性价比": 15, "物流": 13, "耐用": 13, "磨爪": 13, "尺寸": 13, "大小": 12, "耐咬": 11, "推荐": 11, "安全": 10, "互动": 10, "包装": 10, "设计": 9, "价格": 8};
+const prodNames = PRODUCTS.map((p,i) => '#'+(i+1)+' '+p.product_name.slice(0,10));
+const priceData = PRODUCTS.map(p => parseFloat((p.price||'').replace('¥',''))||0);
+
+(function(){
+  const c=echarts.init(document.getElementById('chart-price'));
+  c.setOption({tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},grid:{left:'3%',right:'10%',bottom:'10%',top:'10%',containLabel:true},xAxis:{type:'category',data:prodNames,axisLabel:{rotate:20,fontSize:11}},yAxis:{type:'value',name:'价格 (¥)'},series:[{type:'bar',data:priceData,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#e74c3c'},{offset:1,color:'#f1948a'}])},label:{show:true,position:'top',formatter:'¥{c}',fontSize:12},barMaxWidth:50}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+(function(){
+  const c=echarts.init(document.getElementById('chart-sales-rate'));
+  c.setOption({tooltip:{trigger:'axis',axisPointer:{type:'cross'}},legend:{data:['销量','好评率'],bottom:0},grid:{left:'3%',right:'10%',bottom:'15%',top:'10%',containLabel:true},xAxis:{type:'category',data:prodNames,axisLabel:{rotate:20,fontSize:11}},yAxis:[{type:'value',name:'销量'},{type:'value',name:'好评率 (%)',min:90,axisLabel:{formatter:'{value}%'}}],series:[{name:'销量',type:'bar',data:PRODUCTS.map(p=>p.sales_num||0),itemStyle:{color:'#1890ff'},barMaxWidth:40,label:{show:true,position:'top',formatter:p=>{const v=p.value;return v>=10000?(v/10000).toFixed(0)+'万':v},fontSize:11}},{name:'好评率',type:'line',yAxisIndex:1,data:PRODUCTS.map(p=>p.good_rate||0),lineStyle:{color:'#52c41a',width:3},itemStyle:{color:'#52c41a'},symbol:'circle',symbolSize:10,label:{show:true,formatter:'{c}%',fontSize:12,color:'#52c41a'}}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+(function(){
+  const c=echarts.init(document.getElementById('chart-sentiment-bar'));
+  c.setOption({tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},legend:{data:['正面','中性','负面'],bottom:0},grid:{left:'3%',right:'4%',bottom:'15%',top:'5%',containLabel:true},xAxis:{type:'category',data:prodNames,axisLabel:{rotate:20,fontSize:11}},yAxis:{type:'value',name:'评论数'},series:[{name:'正面',type:'bar',stack:'total',data:SENTIMENTS.map(s=>s.sentiments.positive),itemStyle:{color:'#52c41a'},barMaxWidth:50},{name:'中性',type:'bar',stack:'total',data:SENTIMENTS.map(s=>s.sentiments.neutral),itemStyle:{color:'#faad14'},barMaxWidth:50},{name:'负面',type:'bar',stack:'total',data:SENTIMENTS.map(s=>s.sentiments.negative),itemStyle:{color:'#e74c3c'},barMaxWidth:50}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+(function(){
+  const tP=SENTIMENTS.reduce((a,s)=>a+s.sentiments.positive,0),tN=SENTIMENTS.reduce((a,s)=>a+s.sentiments.neutral,0),tNg=SENTIMENTS.reduce((a,s)=>a+s.sentiments.negative,0);
+  const c=echarts.init(document.getElementById('chart-sentiment-pie'));
+  c.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} 条 ({d}%)'},legend:{orient:'vertical',left:'left',top:'center'},series:[{type:'pie',radius:['45%','72%'],center:['55%','50%'],emphasis:{label:{fontSize:18,fontWeight:'bold'}},label:{formatter:'{b}\n{c} 条 ({d}%)'},data:[{value:tP,name:'正面评价',itemStyle:{color:'#52c41a'}},{value:tN,name:'中性评价',itemStyle:{color:'#faad14'}},{value:tNg,name:'负面评价',itemStyle:{color:'#e74c3c'}}]}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+(function(){
+  const c=echarts.init(document.getElementById('chart-length'));
+  const bd=LENGTH_STATS.map((s,i)=>{const so=[...s.lengths].sort((a,b)=>a-b);return[s.min,so[Math.floor(so.length*.25)],so[Math.floor(so.length*.5)],so[Math.floor(so.length*.75)],s.max]});
+  c.setOption({tooltip:{trigger:'axis'},grid:{left:'8%',right:'5%',bottom:'10%',top:'10%'},xAxis:{type:'category',data:prodNames,axisLabel:{rotate:20,fontSize:11}},yAxis:{type:'value',name:'字数'},series:[{type:'boxplot',data:bd,itemStyle:{color:'#722ed1',borderColor:'#531dab'}},{type:'scatter',data:LENGTH_STATS.map((s,i)=>[i,s.avg]),symbolSize:12,itemStyle:{color:'#e74c3c'},label:{show:true,formatter:p=>'均'+p.value,position:'top',fontSize:11}}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+(function(){
+  const c=echarts.init(document.getElementById('chart-keywords'));
+  const e=Object.entries(GLOBAL_KW);
+  c.setOption({tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},grid:{left:'2%',right:'10%',bottom:'3%',top:'3%',containLabel:true},xAxis:{type:'value',name:'出现次数'},yAxis:{type:'category',data:e.map(e=>e[0]).reverse(),axisLabel:{fontSize:12},inverse:true},series:[{type:'bar',data:e.map(e=>e[1]).reverse(),itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#722ed1'},{offset:1,color:'#b37feb'}])},label:{show:true,position:'right',fontSize:11},barMaxWidth:24}]});
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+KEYWORDS.forEach((item,i)=>{
+  const c=echarts.init(document.getElementById('chart-kw-'+i));
+  const e=Object.entries(item.keywords);
+  c.setOption({tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},grid:{left:'2%',right:'10%',bottom:'3%',top:'3%',containLabel:true},xAxis:{type:'value'},yAxis:{type:'category',data:e.map(e=>e[0]).reverse(),axisLabel:{fontSize:11},inverse:true},series:[{type:'bar',data:e.map(e=>e[1]).reverse(),itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#1890ff'},{offset:1,color:'#69c0ff'}])},label:{show:true,position:'right',fontSize:10},barMaxWidth:20}]});
+  window.addEventListener('resize',()=>c.resize());
+});
+</script>
+</body>
+</html>

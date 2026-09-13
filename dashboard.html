@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>京东宠物玩具数据分析看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+.header { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: #fff; padding: 28px 40px; text-align: center; }
+.header h1 { font-size: 28px; letter-spacing: 2px; }
+.header p { font-size: 14px; opacity: 0.85; margin-top: 6px; }
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: #fff; border-radius: 10px; padding: 20px 24px; box-shadow: 0 2px 10px rgba(0,0,0,.06); display: flex; align-items: center; gap: 16px; }
+.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.stat-icon.blue { background: #e8f4fd; color: #1890ff; }
+.stat-icon.green { background: #e6f7e6; color: #52c41a; }
+.stat-icon.orange { background: #fff3e0; color: #fa8c16; }
+.stat-icon.purple { background: #f3e8ff; color: #722ed1; }
+.stat-value { font-size: 28px; font-weight: 700; }
+.stat-label { font-size: 13px; color: #888; margin-top: 2px; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.charts-grid.single { grid-template-columns: 1fr; }
+.charts-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+.chart-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.chart-card.full { grid-column: 1 / -1; }
+.chart-card h3 { font-size: 16px; margin-bottom: 12px; color: #444; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+.chart { width: 100%; height: 380px; }
+.chart.tall { height: 500px; }
+.table-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); margin-bottom: 20px; }
+.table-card h3 { font-size: 16px; margin-bottom: 12px; color: #444; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: #fafafa; padding: 12px 14px; text-align: left; border-bottom: 2px solid #e8e8e8; font-weight: 600; }
+td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+tr:hover td { background: #fafafa; }
+.sentiment-bar { display: inline-flex; height: 8px; border-radius: 4px; overflow: hidden; width: 120px; vertical-align: middle; margin-right: 8px; }
+.sentiment-bar .pos { background: #52c41a; }
+.sentiment-bar .neu { background: #faad14; }
+.sentiment-bar .neg { background: #e74c3c; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 4px; }
+.tag.pos { background: #f6ffed; color: #52c41a; }
+.tag.neg { background: #fff2f0; color: #e74c3c; }
+.tag.neu { background: #fffbe6; color: #d48806; }
+.footer { text-align: center; padding: 20px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🐾 京东宠物玩具数据分析看板</h1>
+  <p>基于用户评论的多维度数据可视化分析 · 数据来源：JD.com 宠物玩具搜索结果</p>
+</div>
+
+<div class="container">
+
+  <!-- 统计卡片 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon blue">📦</div>
+      <div>
+        <div class="stat-value">4</div>
+        <div class="stat-label">爬取商品数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">💬</div>
+      <div>
+        <div class="stat-value">80</div>
+        <div class="stat-label">总评论数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon orange">⭐</div>
+      <div>
+        <div class="stat-value">97.0%</div>
+        <div class="stat-label">平均好评率</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">📝</div>
+      <div>
+        <div class="stat-value">62</div>
+        <div class="stat-label">平均评论长度（字）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 第一行图表：价格柱状图 + 销量好评率 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>💰 商品价格对比</h3>
+      <div class="chart" id="chart-price"></div>
+    </div>
+    <div class="chart-card">
+      <h3>📊 销量与好评率对比</h3>
+      <div class="chart" id="chart-sales-rate"></div>
+    </div>
+  </div>
+
+  <!-- 第二行：情感分析 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>😊 评论情感分布（按商品）</h3>
+      <div class="chart tall" id="chart-sentiment-bar"></div>
+    </div>
+    <div class="chart-card">
+      <h3>🎯 整体情感占比</h3>
+      <div class="chart tall" id="chart-sentiment-pie"></div>
+    </div>
+  </div>
+
+  <!-- 第三行：评论长度 + 关键词 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>📏 评论长度分布</h3>
+      <div class="chart" id="chart-length"></div>
+    </div>
+    <div class="chart-card">
+      <h3>🔑 热门关键词（全局 Top 15）</h3>
+      <div class="chart" id="chart-keywords"></div>
+    </div>
+  </div>
+
+  <!-- 各商品关键词 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>🏷️ 「疯狂的主人猫抓板窝大号」关键词</h3>
+      <div class="chart" id="chart-kw-0"></div>
+    </div><div class="chart-card">
+      <h3>🏷️ 「疯狂的主人猫抓板窝大号_1」关键词</h3>
+      <div class="chart" id="chart-kw-1"></div>
+    </div><div class="chart-card">
+      <h3>🏷️ 「赛级替换头解闷长杆逗猫棒-1个」关键词</h3>
+      <div class="chart" id="chart-kw-2"></div>
+    </div><div class="chart-card">
+      <h3>🏷️ 「欢宠网狗狗玩具自己玩解闷」关键词</h3>
+      <div class="chart" id="chart-kw-3"></div>
+    </div>
+  </div>
+
+  <!-- 数据表格 -->
+  <div class="table-card">
+    <h3>📋 商品数据明细</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>序号</th><th>商品名称</th><th>价格</th><th>店铺</th><th>销量</th><th>好评率</th><th>评论数</th><th>正面</th><th>中性</th><th>负面</th><th>均长(字)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>疯狂的主人猫抓板窝大号</td><td>¥16.9</td><td>疯狂的主人京东自营旗舰店</td>
+            <td>已售10万+97%好评</td><td>97%</td>
+            <td>20</td>
+            <td><span class="tag pos">17</span></td>
+            <td><span class="tag neu">3</span></td>
+            <td><span class="tag neg">0</span></td>
+            <td>76.5</td>
+          </tr><tr>
+            <td>2</td><td>疯狂的主人猫抓板窝大号</td><td>¥9.8</td><td>疯狂的主人京东自营旗舰店</td>
+            <td>已售70万+98%好评</td><td>98%</td>
+            <td>20</td>
+            <td><span class="tag pos">18</span></td>
+            <td><span class="tag neu">1</span></td>
+            <td><span class="tag neg">1</span></td>
+            <td>68.0</td>
+          </tr><tr>
+            <td>3</td><td>赛级替换头解闷长杆逗猫棒-1个</td><td>¥4.99</td><td>京喜自营官方店</td>
+            <td>已售2万+97%好评</td><td>97%</td>
+            <td>20</td>
+            <td><span class="tag pos">19</span></td>
+            <td><span class="tag neu">1</span></td>
+            <td><span class="tag neg">0</span></td>
+            <td>29.9</td>
+          </tr><tr>
+            <td>4</td><td>欢宠网狗狗玩具自己玩解闷</td><td>¥15.8</td><td>欢宠网京东自营旗舰店</td>
+            <td>已售10万+96%好评</td><td>96%</td>
+            <td>20</td>
+            <td><span class="tag pos">19</span></td>
+            <td><span class="tag neu">0</span></td>
+            <td><span class="tag neg">1</span></td>
+            <td>75.1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">京东宠物玩具数据可视化看板 · 自动生成于 2026-05-09 00:42</div>
+
+<script>
+// ═══════════════ 嵌入数据 ═══════════════
+const PRODUCTS = [{"name": "疯狂的主人猫抓板窝大号", "price": "¥16.9", "promotion": "首购礼金1元/券满99减10/包邮", "store": "疯狂的主人京东自营旗舰店", "sales_text": "已售10万+97%好评", "sales_num": 100000, "good_rate": 97}, {"name": "疯狂的主人猫抓板窝大号", "price": "¥9.8", "promotion": "包邮", "store": "疯狂的主人京东自营旗舰店", "sales_text": "已售70万+98%好评", "sales_num": 700000, "good_rate": 98}, {"name": "赛级替换头解闷长杆逗猫棒-1个", "price": "¥4.99", "promotion": "包邮", "store": "京喜自营官方店", "sales_text": "已售2万+97%好评", "sales_num": 20000, "good_rate": 97}, {"name": "欢宠网狗狗玩具自己玩解闷", "price": "¥15.8", "promotion": "首购礼金1元/满赠/包邮", "store": "欢宠网京东自营旗舰店", "sales_text": "已售10万+96%好评", "sales_num": 100000, "good_rate": 96}];
+const SENTIMENTS = [{"product": "疯狂的主人猫抓板窝大号", "sentiments": {"positive": 17, "neutral": 3, "negative": 0}, "detail": [{"text": "这款仿剑麻猫抓垫的质量不错，产品做工也很满意，没有气味，猫咪很喜欢抓，边缘也没有起毛边，性价比真的挺高的，推荐给养猫家庭", "pos": 4, "neg": 1, "label": "positive"}, {"text": "超级实用的猫抓板！既是抓板也是窝，一物两用超省钱。瓦楞纸材质厚实耐磨，抓起来不飞渣，保护家里家具。设计贴合猫咪身形，主子", "pos": 7, "neg": 1, "label": "positive"}, {"text": "这个猫抓板价格便宜，然后也比较大，挺好用的，因为它本身就是一个消耗品吗？大概一个月能用一个吧，挺好的，整体还挺大的，只不", "pos": 7, "neg": 0, "label": "positive"}, {"text": "有猫家庭的必备品，这款猫抓板质量不错，没有异味，包装完好，我家猫猫有一只比较胖胖，就选择了一款大号的，猫猫用着可美了，想", "pos": 3, "neg": 1, "label": "positive"}, {"text": "材质坚固耐用：材料很坚固，一个大概可以使用两个月\n尺寸宽敞合适：有不同尺寸的可供选择，一般大猫直接买超大款的就好\n安装简", "pos": 3, "neg": 3, "label": "neutral"}, {"text": "是回购款来的，毛孩子挺喜欢！品质也是不错的，没有什么刺激性气味，包装📦良好，京东的物流🚚配送很快很给力的，今后还会继续回", "pos": 8, "neg": 1, "label": "positive"}, {"text": "在京东购物体验非常满意！商品包装严实，物流速度快，下单后第二天就收到了，配送员服务态度很好。产品质量超出预期，做工精细，", "pos": 10, "neg": 1, "label": "positive"}, {"text": "这种猫抓板的猫窝很方便，平时可以拿来睡，也可以拿来磨爪子，小猫咪很喜欢这个牌子，在京东上面下单了很多次，味道比较小，而且", "pos": 4, "neg": 0, "label": "positive"}, {"text": "质量不错，没有异味，包装完好，主要是猫猫们都喜欢，可以当做抓板可以休息，设计很合理，猫咪躺着也舒服，我家有个胖胖猫，就选", "pos": 5, "neg": 1, "label": "positive"}, {"text": "一直都买这款猫抓板，小猫咪用起来很顺手，也习惯了每天过去磨爪。还可以躺在里面睡觉。一般能用一个半月左右，就会掉纸屑了，形", "pos": 1, "neg": 0, "label": "positive"}, {"text": "再一次买了这家的瓦楞纸猫抓板猫窝，材质好，包装严实，空间足够大，我家的爱猫🐱相当的喜欢！躺着，趴着，发爪，挠的那叫一个欢", "pos": 4, "neg": 0, "label": "positive"}, {"text": "猫抓板质量特别好，瓦楞纸厚实坚硬，耐磨不掉渣，边缘打磨光滑不伤猫爪。尺寸大小合适，稳固不易滑动，既能磨爪保护家具，又能趴", "pos": 6, "neg": 2, "label": "positive"}, {"text": "买的超大号的，空间给一只猫用完全合适了，正反两面都可以用来给猫抓，直接放在地上也很稳固，买回来很喜欢玩，就是价格有点稍贵", "pos": 2, "neg": 2, "label": "neutral"}, {"text": "喵喵很喜欢抓，平时在里面躺着，玩，磨爪子抓，物流快，质量比较好用，目前还没有掉屑，喵喵多斤吧，大小刚好，平时喜欢在里面玩", "pos": 5, "neg": 1, "label": "positive"}, {"text": "晚上下的订单第二天上午就到了，物流速度很快很好，材质坚固耐用尺寸大小合适家里的猫猫好像非常喜欢，打开包装放在地上一会儿猫", "pos": 6, "neg": 0, "label": "positive"}, {"text": "这个垫子感觉还是挺结实的，没有异味，但是我家乐乐磨爪子不是很好，这个他的那个密封性，不太适合磨爪，价格也不贵留下了，他还", "pos": 4, "neg": 3, "label": "positive"}, {"text": "材质坚固耐用：这款猫抓板材料厚实，坚固耐用\n尺寸宽敞合适：尺寸还算宽敞吧，我家毛孩子18斤，用着还可以，毛孩子一看到就爬", "pos": 4, "neg": 0, "label": "positive"}, {"text": "使用一周，猫咪每天主动抓挠，材质硬挺耐抓，底部防滑设计稳定不位移。 \n优点：耐磨不易掉屑，造型简约省空间，猫咪喜欢程度高", "pos": 1, "neg": 1, "label": "neutral"}, {"text": "材质坚固耐用：材质还是挺结实的，挺不错的\n尺寸宽敞合适：买的尺寸和符合我们家猫咪的体型，非常\n安装简便性：无需自己动手安", "pos": 7, "neg": 0, "label": "positive"}, {"text": "这款猫抓板大小适中，不占地方，小猫玩得不亦乐乎。材质非常紧实、非常耐用，猫咪抓起来特别带感。再也不用担心猫咪的爪子没地儿", "pos": 4, "neg": 0, "label": "positive"}], "total": 20}, {"product": "疯狂的主人猫抓板窝大号_1", "sentiments": {"positive": 18, "neutral": 1, "negative": 1}, "detail": [{"text": "这个猫抓板窝尺寸很合适，外观也很漂亮，猫卧上去很宽敞，但是我家猫不会用这个磨爪子，平时就当个猫窝用，猫还是很喜欢卧这上面", "pos": 2, "neg": 0, "label": "positive"}, {"text": "这款猫抓窝质量超棒，材质厚实耐磨，猫咪一放进去就喜欢得不行，又抓又躺超安心。造型简约好看，不占地方，还能有效保护家具。做", "pos": 8, "neg": 1, "label": "positive"}, {"text": "猫抓窝软硬适中，猫咪超爱躺卧。耐磨耐抓不掉屑，保护沙发不被抓坏。造型好看贴合猫咪习性，稳固不晃动，清理方便，四季通用，猫", "pos": 4, "neg": 2, "label": "positive"}, {"text": "不错，小猫咪直接就开始使用了，摸着质量行，材质坚固耐用，很扎实，尺寸宽敞合适，价格也很实惠，值得入手。", "pos": 5, "neg": 0, "label": "positive"}, {"text": "巨大号的猫抓板和猫盆，又可以睡觉也可以玩耍，就是刚到货的时候味道会比较大一些，要放一段时间散散味道，比较耐装可以用的时间", "pos": 0, "neg": 0, "label": "neutral"}, {"text": "这个是买来送给自家猫咪的 到货后，小猫就迫不及待的到里面去玩了 不但可以躺在里面，还可以当猫抓板方便使用，而且质量也不错", "pos": 2, "neg": 0, "label": "positive"}, {"text": "大橘一只，之前的猫抓板已经完全坏了。。又买一个新的，更大尺寸的。。。能躺在里面，能练爪子。。多用途的设计。。物流也算是给", "pos": 2, "neg": 4, "label": "negative"}, {"text": "价格还行吧硬度实在合适，很大的。睡三只猫没问题六斤左右已经购买五六次了，还是比较靠谱的。京东包装还不错，没有变形，运输值", "pos": 5, "neg": 1, "label": "positive"}, {"text": "感觉猫猫很喜欢这个盆的大小也很合适，非常适合大体中的猫猫，然后猫呢，在牌里边呆着很有卧的，安全感，然后又不占地方搬家养好", "pos": 6, "neg": 0, "label": "positive"}, {"text": "家里的买的猫抓板都是疯狂主人这个牌子的，买过很多个了，质量可以，价格也合适，毛孩子们都爱抓，很轻，质量也说得过去，满意好", "pos": 3, "neg": 0, "label": "positive"}, {"text": "感觉实物比图片更好看，价格和质量成正比，这次购物非常满意，喜欢的宝宝赶紧下手货真价实，高颜值，高品质，一分钱一分货。\n安", "pos": 8, "neg": 0, "label": "positive"}, {"text": "这款猫抓板质量超棒，瓦楞纸厚实紧实，没有异味，猫咪一放上去就开始抓，超级喜欢！大小合适，不占地方，还能当猫窝休息，性价比", "pos": 5, "neg": 1, "label": "positive"}, {"text": "这款猫抓板很大，因为这是打11到12 斤的猫放在里面都还挺宽敞的，就是有点大猫不怎么喜欢，粘毛效果也挺好。但偶尔会用来磨", "pos": 3, "neg": 2, "label": "positive"}, {"text": "材质坚固耐用：不错的，比较坚固\n尺寸宽敞合适：大小合适，胖的瘦的都可以用\n安装简便性：很简单，拆开就用\n防滑稳固设计：还", "pos": 6, "neg": 0, "label": "positive"}, {"text": "物流很快，不错不错，相当满意的，小猫咪很喜欢刚拿回来，小猫咪就爬上去抓了，物流很快，快递小哥是送货上门的服务态度也很好！", "pos": 10, "neg": 0, "label": "positive"}, {"text": "这款猫窝猫咪很喜欢，材质耐用，尺寸选的圆形的合适，猫咪喜欢在里面磨爪，躺着睡觉！发货速度快！这是第三个同款产品了！", "pos": 4, "neg": 0, "label": "positive"}, {"text": "猫抓窝收到了，放在地上很稳固，直径50的很大，家里十五六斤的大猫睡在里面也不显得拥挤，躺下很舒展，质量很好，不易掉屑，价", "pos": 3, "neg": 1, "label": "positive"}, {"text": "猫咪很喜欢，质量不错，一放好了猫咪就待上来了，适用16斤以内的猫咪，猫咪很喜欢猫抓板，用来磨爪子也不错，材质比一般的啊猫", "pos": 6, "neg": 0, "label": "positive"}, {"text": "这个猫抓板窝挺大的，刚好给我们家猫用，一拿回来，他就躺上去磨爪子 ，躺在里面挺舒服的，还挺好。", "pos": 4, "neg": 0, "label": "positive"}, {"text": "猫抓板收到了，质量特别，都购买过很多次这个大碗了，小猫也很喜欢，一拿回来就进去挠了几下，而且京东自营店发货也很速度的，下", "pos": 4, "neg": 0, "label": "positive"}], "total": 20}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "sentiments": {"positive": 19, "neutral": 1, "negative": 0}, "detail": [{"text": "不错，猫咪很爱玩", "pos": 1, "neg": 0, "label": "positive"}, {"text": "逗猫棒已收到，俺家猫猫特别喜欢…安逸得很，感谢商家。", "pos": 2, "neg": 0, "label": "positive"}, {"text": "很好 羽毛一个大一个小猫猫喜欢", "pos": 2, "neg": 0, "label": "positive"}, {"text": "逗猫的乐趣在于不但跟猫咪玩耍，而且可以锻炼猫咪的身体，唤醒猫咪打逗的天性，此款宝贝互动性很强，制作精良品质优异，强力推荐", "pos": 3, "neg": 0, "label": "positive"}, {"text": "不错，猫咪爱玩", "pos": 1, "neg": 0, "label": "positive"}, {"text": "🎉快递提前三天送到，惊喜满满！📦猫咪一见就疯狂扑咬，玩得超投入～😻逗猫棒设计灵巧，互动感十足，毛孩子爱不释手～🐾材质安全", "pos": 6, "neg": 1, "label": "positive"}, {"text": "替换头小的可怜啊", "pos": 0, "neg": 0, "label": "neutral"}, {"text": "很不错，逗猫杆有弹性，有两个羽毛头，猫很喜欢", "pos": 4, "neg": 0, "label": "positive"}, {"text": "质量非常好，与卖家描述的完全一致，真的很喜欢！", "pos": 3, "neg": 0, "label": "positive"}, {"text": "物美价廉，猫孩子很喜欢", "pos": 2, "neg": 0, "label": "positive"}, {"text": "虽然挺好玩，不知道能玩多久，但是质量上，最起码手柄是坏的", "pos": 2, "neg": 1, "label": "positive"}, {"text": "好玩，小猫爱不释手的", "pos": 2, "neg": 0, "label": "positive"}, {"text": "猫咪爱不释口，玩耍超开心😊📦材质结实耐用，啃咬也不易坏💪✨性价比超高，家里主子天天追着玩🎉🐱真的物有所值👍", "pos": 4, "neg": 1, "label": "positive"}, {"text": "逗猫棒太棒了！猫咪玩得停不下来，质量好又耐咬，性价比超高！推荐推荐", "pos": 5, "neg": 0, "label": "positive"}, {"text": "小家伙还挺爱玩儿的，每次都非常开心，质量好，价格不贵挺好的。", "pos": 5, "neg": 1, "label": "positive"}, {"text": "猫咪很喜欢，玩具很有趣儿，包装也很好，谢谢！", "pos": 2, "neg": 0, "label": "positive"}, {"text": "特别好，小猫很喜欢，玩累了也舍不得，一直看着", "pos": 2, "neg": 0, "label": "positive"}, {"text": "这个逗猫棒我的小猫超喜欢 玩疯了", "pos": 2, "neg": 0, "label": "positive"}, {"text": "质量不错的一款逗猫棒，特地选了长杆的，整体符合预期，商品送货很快，小猫咪比较喜欢这个玩具，没有什么味道，值得大家学习购买", "pos": 7, "neg": 0, "label": "positive"}, {"text": "东西很好，猫猫很喜欢；我一直买的他家这款，性价比很高，趁着有活动赶紧买了屯着", "pos": 2, "neg": 0, "label": "positive"}], "total": 20}, {"product": "欢宠网狗狗玩具自己玩解闷", "sentiments": {"positive": 19, "neutral": 0, "negative": 1}, "detail": [{"text": "已经很多次在欢球网购买宠物玩具了。这款球做工扎实材料实在打气，非常方便。狗狗非常喜欢玩，可以跟狗狗互动，再也不怕它郁闷，", "pos": 4, "neg": 0, "label": "positive"}, {"text": "这款狗狗玩具材质安全无毒，韧性十足耐咬耐磨，不容易被咬坏。造型有趣新颖，能很好吸引狗狗注意力，消磨闲暇时光。做工精细没有", "pos": 6, "neg": 2, "label": "positive"}, {"text": "第一次养狗狗，给狗狗买玩具，狗狗很喜欢，很扎实的玩具，狗狗也咬不坏，能玩很久，消磨精力，还能磨牙，玩具也没有异味，直接就", "pos": 1, "neg": 2, "label": "negative"}, {"text": "这款玩具弹力十足，颜色非常鲜艳，狗狗一见就爱不释口。互动性很强，发声效果也很吸引它，玩起来特别投入。快递包装严实，送货速", "pos": 5, "neg": 0, "label": "positive"}, {"text": "我家狗狗超爱这款玩具，每次玩都特别开心。它耐咬且安全，材质柔软不会伤到狗狗。颜色鲜艳，能吸引狗狗注意力。大小适中，方便狗", "pos": 7, "neg": 0, "label": "positive"}, {"text": "这款“欢宠网宠物狗玩具狗狗自己玩解闷自嗨耐咬磨牙发声小狗幼犬遛狗逗狗神器”，小毛孩子很喜欢，抱着不放的玩，省的破坏家具，", "pos": 6, "neg": 1, "label": "positive"}, {"text": "狗子特别喜欢，一说去拿嘎嘎，就给拿过来了。这个小鸭子已经买了五六个了，比较结实，扛得住小狗的撕咬摔打，里面的发声器的声音", "pos": 3, "neg": 0, "label": "positive"}, {"text": "🐶这款狗狗玩具真的超赞！颜色鲜艳，狗狗一见就爱不释口 😍 互动性很强，咬、拉、抓都玩得不亦乐乎 🐾 包装严实，快递飞速送", "pos": 6, "neg": 0, "label": "positive"}, {"text": "狗狗🐶超级喜欢这个圈圈，爱到不舍得松口，材质很安全，也没有难闻的味道。这个圈圈可以每天和狗狗互动，做游戏，增加人与狗狗的", "pos": 2, "neg": 1, "label": "positive"}, {"text": "耐咬性：耐咬\n材质安全性：无异味，重量合适\n弹性效果：有弹性，好玩儿\n尺寸适配度：目前对小狗来说有点大，只能拿来与人互动", "pos": 3, "neg": 2, "label": "positive"}, {"text": "东东收到一段时间了，还不错，刚开始玩的挺起劲的，玩一段时间之后，兴趣过了就不是太爱玩了，现在时不时地玩一下，东东整体还是", "pos": 2, "neg": 0, "label": "positive"}, {"text": "这次给狗狗买的玩具它很喜欢，每次看到都兴奋不已。品质不错。物流快，服务好，会继续回购。", "pos": 5, "neg": 0, "label": "positive"}, {"text": "这款狗狗玩具质量超棒，材质厚实耐咬，没有异味，安全放心。造型可爱，狗狗一拿到就爱不释手，玩得特别开心。做工精细，边角圆滑", "pos": 12, "neg": 1, "label": "positive"}, {"text": "我家狗狗超爱这款玩具，收到货就玩都特别开心。它耐咬且安全，材质柔软不会伤到狗狗。颜色鲜艳，能吸引狗狗注意力。大小适中，方", "pos": 7, "neg": 0, "label": "positive"}, {"text": "送朋友家的小狗的，大小合适外观也挺好看的，小狗很喜欢。挺耐咬的材质也很安全弹性也不错。能发出声音互动性挺好的。物流很快。", "pos": 10, "neg": 0, "label": "positive"}, {"text": "这款磨牙棒硬度适中，狗狗超爱吃！啃咬时能有效清洁牙齿、缓解口臭，还能打发时间不拆家。成分安全无添加，大小合适不伤牙龈，性", "pos": 5, "neg": 1, "label": "positive"}, {"text": "小狗玩具太可爱了！材质安全耐咬，发声设计特别吸引狗狗。我家宝贝爱不释爪，每天自己玩得超开心，还能解闷减压。耐玩不掉屑，真", "pos": 4, "neg": 1, "label": "positive"}, {"text": "已经很多次在欢球网购买宠物玩具了。这款球做工扎实材料实在打气，非常方便。狗狗非常喜欢玩，可以跟狗狗互动，再也不怕它郁闷", "pos": 2, "neg": 0, "label": "positive"}, {"text": "这个长度是可以的，很大也够用，这个胡萝卜玩具，已经是第二次回购了，整个胡萝卜有2处可以响的位置，挺好玩的，我家毛孩子挺喜", "pos": 4, "neg": 0, "label": "positive"}, {"text": "这款狗狗玩具真的超赞 材质结实耐咬 弹力适中 狗狗自己玩 互动玩都合适 能磨牙解闷 消耗精力 再也不拆家了 做工扎实 大", "pos": 6, "neg": 0, "label": "positive"}], "total": 20}];
+const KEYWORDS = [{"product": "疯狂的主人猫抓板窝大号", "keywords": {"材质": 9, "尺寸": 8, "包装": 7, "耐用": 7, "质量": 6, "磨爪": 6, "设计": 5, "价格": 4, "物流": 4, "异味": 4, "稳固": 4, "防滑": 4, "大小": 4, "宽敞": 4, "性价比": 3}}, {"product": "疯狂的主人猫抓板窝大号_1", "keywords": {"质量": 10, "材质": 6, "价格": 5, "耐用": 5, "磨爪": 5, "尺寸": 5, "物流": 4, "性价比": 4, "宽敞": 4, "睡觉": 3, "稳固": 3, "大小": 3, "推荐": 2, "异味": 2, "厚实": 2}}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "keywords": {"质量": 5, "性价比": 4, "推荐": 3, "材质": 2, "互动": 2, "价格": 1, "包装": 1, "耐用": 1, "异味": 1, "结实": 1, "安全": 1, "方便": 1, "耐咬": 1, "磨牙": 1, "设计": 1}}, {"product": "欢宠网狗狗玩具自己玩解闷", "keywords": {"耐咬": 10, "材质": 9, "安全": 9, "互动": 8, "推荐": 6, "磨牙": 6, "大小": 5, "做工": 5, "方便": 4, "发声": 4, "解闷": 4, "拆家": 4, "物流": 3, "性价比": 3, "回购": 3}}];
+const LENGTH_STATS = [{"product": "疯狂的主人猫抓板窝大号", "avg": 76.5, "max": 132, "min": 60, "lengths": [61, 90, 93, 67, 98, 66, 132, 64, 69, 65, 67, 90, 61, 60, 67, 68, 86, 61, 92, 72]}, {"product": "疯狂的主人猫抓板窝大号_1", "avg": 68.0, "max": 93, "min": 47, "lengths": [61, 84, 75, 51, 65, 60, 88, 63, 63, 62, 84, 68, 63, 93, 60, 57, 64, 69, 47, 82]}, {"product": "赛级替换头解闷长杆逗猫棒-1个", "avg": 29.9, "max": 102, "min": 7, "lengths": [8, 26, 15, 63, 7, 102, 8, 22, 23, 11, 28, 10, 53, 33, 30, 22, 22, 16, 61, 38]}, {"product": "欢宠网狗狗玩具自己玩解闷", "avg": 75.1, "max": 102, "min": 43, "lengths": [65, 102, 63, 81, 90, 83, 72, 92, 63, 92, 64, 43, 84, 92, 60, 78, 64, 59, 62, 93]}];
+const GLOBAL_KW = {"材质": 26, "质量": 21, "性价比": 14, "尺寸": 13, "耐用": 13, "大小": 12, "磨爪": 11, "物流": 11, "推荐": 11, "耐咬": 11, "价格": 10, "互动": 10, "安全": 10, "包装": 8, "宽敞": 8};
+
+const prodNames = PRODUCTS.map((p, i) => `#${i+1} ${p.name.slice(0,10)}`);
+const priceData = PRODUCTS.map(p => parseFloat(p.price.replace('¥','')));
+
+// ── 价格柱状图 ──
+(function() {
+  const c = echarts.init(document.getElementById('chart-price'));
+  c.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '10%', bottom: '10%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: prodNames, axisLabel: { rotate: 20, fontSize: 11 } },
+    yAxis: { type: 'value', name: '价格 (¥)' },
+    series: [{
+      type: 'bar', data: priceData,
+      itemStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        {offset:0, color:'#e74c3c'}, {offset:1, color:'#f1948a'}
+      ]) },
+      label: { show: true, position: 'top', formatter: '¥{c}', fontSize: 12 },
+      barMaxWidth: 50,
+    }]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 销量 + 好评率双轴 ──
+(function() {
+  const c = echarts.init(document.getElementById('chart-sales-rate'));
+  c.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    legend: { data: ['销量', '好评率'], bottom: 0 },
+    grid: { left: '3%', right: '10%', bottom: '15%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: prodNames, axisLabel: { rotate: 20, fontSize: 11 } },
+    yAxis: [
+      { type: 'value', name: '销量', axisLabel: { formatter: '{value}' } },
+      { type: 'value', name: '好评率 (%)', min: 90, axisLabel: { formatter: '{value}%' } }
+    ],
+    series: [
+      {
+        name: '销量', type: 'bar', data: PRODUCTS.map(p => p.sales_num),
+        itemStyle: { color: '#1890ff' }, barMaxWidth: 40,
+        label: { show: true, position: 'top', formatter: p => {
+          const v = p.value;
+          return v >= 10000 ? (v/10000).toFixed(0) + '万' : v;
+        }, fontSize: 11 }
+      },
+      {
+        name: '好评率', type: 'line', yAxisIndex: 1,
+        data: PRODUCTS.map(p => p.good_rate),
+        lineStyle: { color: '#52c41a', width: 3 },
+        itemStyle: { color: '#52c41a' },
+        symbol: 'circle', symbolSize: 10,
+        label: { show: true, formatter: '{c}%', fontSize: 12, color: '#52c41a' }
+      }
+    ]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 情感分布柱状图 ──
+(function() {
+  const c = echarts.init(document.getElementById('chart-sentiment-bar'));
+  c.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { data: ['正面', '中性', '负面'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+    xAxis: { type: 'category', data: prodNames, axisLabel: { rotate: 20, fontSize: 11 } },
+    yAxis: { type: 'value', name: '评论数' },
+    series: [
+      { name: '正面', type: 'bar', stack: 'total', data: SENTIMENTS.map(s => s.sentiments.positive), itemStyle: { color: '#52c41a' }, barMaxWidth: 50 },
+      { name: '中性', type: 'bar', stack: 'total', data: SENTIMENTS.map(s => s.sentiments.neutral), itemStyle: { color: '#faad14' }, barMaxWidth: 50 },
+      { name: '负面', type: 'bar', stack: 'total', data: SENTIMENTS.map(s => s.sentiments.negative), itemStyle: { color: '#e74c3c' }, barMaxWidth: 50 },
+    ]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 整体情感饼图 ──
+(function() {
+  const totalPos = SENTIMENTS.reduce((a,s) => a + s.sentiments.positive, 0);
+  const totalNeu = SENTIMENTS.reduce((a,s) => a + s.sentiments.neutral, 0);
+  const totalNeg = SENTIMENTS.reduce((a,s) => a + s.sentiments.negative, 0);
+  const c = echarts.init(document.getElementById('chart-sentiment-pie'));
+  c.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} 条 ({d}%)' },
+    legend: { orient: 'vertical', left: 'left', top: 'center' },
+    series: [{
+      type: 'pie', radius: ['45%', '72%'], center: ['55%', '50%'],
+      emphasis: { label: { fontSize: 18, fontWeight: 'bold' } },
+      label: { formatter: '{b}\n{c} 条 ({d}%)' },
+      data: [
+        { value: totalPos, name: '正面评价', itemStyle: { color: '#52c41a' } },
+        { value: totalNeu, name: '中性评价', itemStyle: { color: '#faad14' } },
+        { value: totalNeg, name: '负面评价', itemStyle: { color: '#e74c3c' } },
+      ]
+    }]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 评论长度箱线图 ──
+(function() {
+  const c = echarts.init(document.getElementById('chart-length'));
+  const boxData = LENGTH_STATS.map((s, i) => {
+    const sorted = [...s.lengths].sort((a,b)=>a-b);
+    const q1 = sorted[Math.floor(sorted.length*0.25)];
+    const q3 = sorted[Math.floor(sorted.length*0.75)];
+    const mid = sorted[Math.floor(sorted.length*0.5)];
+    return [s.min, q1, mid, q3, s.max];
+  });
+  c.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: '8%', right: '5%', bottom: '10%', top: '10%' },
+    xAxis: { type: 'category', data: prodNames, axisLabel: { rotate: 20, fontSize: 11 } },
+    yAxis: { type: 'value', name: '字数' },
+    series: [
+      {
+        type: 'boxplot', data: boxData,
+        itemStyle: { color: '#722ed1', borderColor: '#531dab' },
+      },
+      {
+        type: 'scatter', data: LENGTH_STATS.map((s,i) => [i, s.avg]),
+        symbolSize: 12, itemStyle: { color: '#e74c3c' },
+        label: { show: true, formatter: p => '均' + p.value, position: 'top', fontSize: 11 }
+      }
+    ]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 全局关键词 ──
+(function() {
+  const c = echarts.init(document.getElementById('chart-keywords'));
+  const entries = Object.entries(GLOBAL_KW);
+  c.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '2%', right: '10%', bottom: '3%', top: '3%', containLabel: true },
+    xAxis: { type: 'value', name: '出现次数' },
+    yAxis: { type: 'category', data: entries.map(e=>e[0]).reverse(), axisLabel: { fontSize: 12 }, inverse: true },
+    series: [{
+      type: 'bar', data: entries.map(e=>e[1]).reverse(),
+      itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[
+        {offset:0, color:'#722ed1'}, {offset:1, color:'#b37feb'}
+      ]) },
+      label: { show: true, position: 'right', fontSize: 11 },
+      barMaxWidth: 24,
+    }]
+  });
+  window.addEventListener('resize', () => c.resize());
+})();
+
+// ── 各商品关键词 ──
+KEYWORDS.forEach((item, i) => {
+  const c = echarts.init(document.getElementById('chart-kw-' + i));
+  const entries = Object.entries(item.keywords);
+  c.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '2%', right: '10%', bottom: '3%', top: '3%', containLabel: true },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: entries.map(e=>e[0]).reverse(), axisLabel: { fontSize: 11 }, inverse: true },
+    series: [{
+      type: 'bar', data: entries.map(e=>e[1]).reverse(),
+      itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[
+        {offset:0, color:'#1890ff'}, {offset:1, color:'#69c0ff'}
+      ]) },
+      label: { show: true, position: 'right', fontSize: 10 },
+      barMaxWidth: 20,
+    }]
+  });
+  window.addEventListener('resize', () => c.resize());
+});
+</script>
+
+</body>
+</html>
